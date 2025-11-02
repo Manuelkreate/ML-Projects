@@ -1,0 +1,71 @@
+# stage1_preprocessing.py
+"""
+Stage 1: Dataset Preprocessing for Fake News Detection
+
+This script:
+1. Loads train, validation, and test datasets from .jsonl format
+2. Converts them into pandas DataFrames
+3. Maps labels to integers
+4. Combines text fields into a single feature column
+5. Saves cleaned datasets to CSV for later training
+"""
+
+import pandas as pd
+import json
+from pathlib import Path
+
+# ---- CONFIG ----
+DATA_DIR = Path(r"C:\Users\NEW USER\Desktop\Limerick's\AI-ML Stuff")
+FILES = {
+    "train": DATA_DIR / "train2.jsonl",
+    "val": DATA_DIR / "val2.jsonl",
+    "test": DATA_DIR / "test2.jsonl"
+}
+OUTPUT_DIR = DATA_DIR / "processed"
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+# Label mapping — adjust if dataset has more categories
+LABEL_MAP = {
+    "false": 0,
+    "true": 1,
+    "barely-true": 2,
+    "half-true": 3,
+    "mostly-true": 4,
+    "pants-fire": 5
+}
+
+# ---- FUNCTIONS ----
+def load_jsonl(path):
+    """Load a .jsonl file into a pandas DataFrame."""
+    records = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            records.append(json.loads(line.strip()))
+    return pd.DataFrame(records)
+
+def preprocess(df):
+    """Clean and prepare the dataset."""
+    df = df.copy()
+
+    # Map labels to integers
+    df["label_encoded"] = df["label"].map(LABEL_MAP)
+
+    # Combine claim + justification into one text field
+    df["text"] = df["claim"].fillna("") + " " + df["justification"].fillna("")
+
+    # Drop rows with missing labels or text
+    df = df.dropna(subset=["label_encoded", "text"])
+
+    return df[["id", "text", "label_encoded"]]
+
+# ---- MAIN ----
+if __name__ == "__main__":
+    for split, path in FILES.items():
+        print(f"Processing {split} dataset...")
+        df_raw = load_jsonl(path)
+        df_clean = preprocess(df_raw)
+        out_path = OUTPUT_DIR / f"{split}.csv"
+        df_clean.to_csv(out_path, index=False)
+        print(f"Saved cleaned {split} dataset to {out_path}")
+
+    print(" Done.")
